@@ -95,11 +95,11 @@ sub main {
     if ( $params{list} ) {
 	for my $i ( 0 .. $#{$ec2list[0]} ) {
 	    if ( ${$ec2list[0]}[$i][1] ) {
-		printf("%-60s", ${$ec2list[0]}[$i][1]);
+		printf("%-55s", ${$ec2list[0]}[$i][1]);
 	    } else {
-		printf("%-60s", ${$ec2list[0]}[$i][0]);
+		printf("%-55s", ${$ec2list[0]}[$i][0]);
 	    }
-	    print "${$ec2list[0]}[$i][3]";
+	    print "\t${$ec2list[0]}[$i][3]";
 	    if ( ${$ec2list[0]}[$i][2] ) {
 		print "\t" . ${$ec2list[0]}[$i][2] . "\n";
 	    } else {
@@ -145,18 +145,53 @@ sub bash_completion {
     print '
 __ec2connect_completions()
 {
-  # COMPREPLY+=("--profile")
-  # COMPREPLY+=("--region")
-  # COMPREPLY+=("--name")
+  local cur prev words cword
+  _init_completion -n : || return
 
-  local cur
+  local ipvx
+
   COMPREPLY=()   # Array variable storing the possible completions.
   cur=${COMP_WORDS[COMP_CWORD]}
+
   case "$cur" in
-    -*)
+    *)
     COMPREPLY=( $( compgen -W \'-n -p -r -l -h -m \
                                --name --profile --region --help \' -- $cur ) );;
   esac
+
+  case $prev in
+    --region|-r)
+      AWS_PROFILE=$(echo -n ${COMP_LINE} | grep --color=never -Poe \'-(-profile|p) \K[^ ]*\')
+
+      if [ -n "${AWS_PROFILE}" ]; then
+          COMPREPLY=( $( compgen -W "$(command aws --profile=${AWS_PROFILE} ec2 describe-regions --query "Regions[].{Name:RegionName}" --output text)" -- $cur) )
+      else
+          COMPREPLY=( $( compgen -W "$(command aws ec2 describe-regions --query "Regions[].{Name:RegionName}" --output text)" -- $cur) )
+      fi
+      ;;
+
+    --profile|-p)
+      COMPREPLY=($(compgen -W "$(command aws configure list-profiles)" -- $cur))
+      ;;
+
+    --name|-n)
+      AWS_PROFILE=$(echo -n ${COMP_LINE} | grep --color=never -Poe \'-(-profile|p) \K[^ ]*\')
+      AWS_REGION=$(echo -n ${COMP_LINE} | grep --color=never -Poe \'-(-region|r) \K[^ ]*\')
+
+      if [ -n "${AWS_PROFILE}" ] && [ -n "${AWS_REGION}" ]; then
+        COMPREPLY=( $( compgen -W "$(command $COMP_WORDS --profile ${AWS_PROFILE} --region ${AWS_REGION} -l | awk -F\'\t\' \'{print $1}\')" -- $cur ))
+      elif [ -n "${AWS_PROFILE}" ]; then
+
+        COMPREPLY=( $( compgen -W "$(command $COMP_WORDS --profile ${AWS_PROFILE} -l | awk -F\'\t\' \'{print $1}\')" -- $cur ))
+      elif [ -n "${AWS_REGION}" ]; then
+        COMPREPLY=( $( compgen -W "$(command $COMP_WORDS --region ${AWS_REGION} -l | awk -F\'\t\' \'{print $1}\')" -- $cur ))
+      else
+        COMPREPLY=( $( compgen -W "$(command $COMP_WORDS -l | awk -F\'\t\' \'{print $1}\')" -- $cur ))
+
+      fi
+     ;;
+  esac
+
   return 0
 }
 
