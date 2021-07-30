@@ -15,11 +15,13 @@ sub main {
     my $awsgetec2list;
     my @ec2list;
     my $instanceid;
+    my $launchtime;
     my ($config);
     my $configfile = "$ENV{HOME}/.ec2connect.config";
 
     my $result = GetOptions (
 	"name|n=s"         => \$params{name},
+	"type|t=s"         => \$params{type},
 	"nocache"          => \$params{nocache},
 	"profile|p=s"      => \$params{profile},
 	"region|r=s"       => \$params{region},
@@ -42,7 +44,7 @@ sub main {
 	$config = YAML::Any::LoadFile( "$configfile" ) || pod2usage( { -message => "cannot open $configfile", -verbose => 1, -exitval => 2} );
     }
 
-    if ( ! ( $params{name} || $params{list} ) || $params{help} ) {
+    if ( ! ( $params{name} || $params{type} || $params{list} ) || $params{help} ) {
         pod2usage(1);
     }
 
@@ -72,7 +74,7 @@ sub main {
 	$awscommand = $awscommand . " --region $params{region}";
     }
 
-    if ( -s $cachefilename && -M $cachefilename < 1 && ! $params{nocache}) {
+    if (  -s $cachefilename && -M $cachefilename < 1  && ! $params{nocache}) {
 	open (FILE, "< $cachefilename") or die "can't open $cachefilename: $!";
 	undef $/;		# read in file all at once;
 	eval <FILE>;
@@ -81,7 +83,7 @@ sub main {
     }
     else {
 	print STDERR "fetching list....\n";
-	$awsgetec2list = $awscommand . " ec2 describe-instances --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`Name`].Value[] | [0]]' --output json";
+	$awsgetec2list = $awscommand . " ec2 describe-instances --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`Name`].Value[] | [0],Tags[?Key==`Type`].Value[] | [0],LaunchTime]' --filters Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped --output json";
 	my $result = `$awsgetec2list`;
 	@ec2list = decode_json $result;
 	$Data::Dumper::Purity = 1;
@@ -93,21 +95,48 @@ sub main {
     if ( $params{list} ) {
 	for my $i ( 0 .. $#{$ec2list[0]} ) {
 	    if ( ${$ec2list[0]}[$i][1] ) {
-		print ${$ec2list[0]}[$i][1] . "\n";
+		printf("%-60s", ${$ec2list[0]}[$i][1]);
+	    } else {
+		printf("%-60s", ${$ec2list[0]}[$i][0]);
+	    }
+	    print "${$ec2list[0]}[$i][3]";
+	    if ( ${$ec2list[0]}[$i][2] ) {
+		print "\t" . ${$ec2list[0]}[$i][2] . "\n";
+	    } else {
+	       print "\n";
 	    }
 	}
 	exit 0;
     }
 
-    for my $i ( 0 .. $#{$ec2list[0]} ) {
-	if ( ${$ec2list[0]}[$i][1] && ${$ec2list[0]}[$i][1] eq $params{name} ) {
-	    $instanceid = ${$ec2list[0]}[$i][0];
-	    last;
+    if ( $params{name}) {
+	for my $i ( 0 .. $#{$ec2list[0]} ) {
+	    if ( ${$ec2list[0]}[$i][1] && ${$ec2list[0]}[$i][1] eq $params{name} ) {
+		$instanceid = ${$ec2list[0]}[$i][0];
+		$launchtime = ${$ec2list[0]}[$i][3];
+		last;
+	    } elsif ( ${$ec2list[0]}[$i][0] eq $params{name} ) {
+		# search for ids instead as we didn't found a name tag match.
+		$instanceid = ${$ec2list[0]}[$i][0];
+		$launchtime = ${$ec2list[0]}[$i][3];
+		last;
+	    }
+
 	}
+    } elsif ( $params{type} ) {
+	for my $i ( 0 .. $#{$ec2list[0]} ) {
+	    if ( ${$ec2list[0]}[$i][2] && ${$ec2list[0]}[$i][2] eq $params{type} ) {
+		$instanceid = ${$ec2list[0]}[$i][0];
+		$launchtime = ${$ec2list[0]}[$i][3];
+		last;
+	    }
+	}
+    } else {
+	exit 0;
     }
 
     if ( $instanceid ) {
-	print STDERR ($params{profile} || "default" ) . " - " . ($params{region} || "default" ) . " - " . $instanceid . "\n";
+	print STDERR ($params{profile} || "default" ) . " - " . ($params{region} || "default" ) . " - " . $instanceid . " - " . $launchtime . "\n";
 	system("$awscommand ssm start-session --target ${instanceid}");
     }
 }
