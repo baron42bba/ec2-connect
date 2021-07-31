@@ -1,0 +1,57 @@
+* ec2-connect
+wrapper utility to connect to AWS ec2 instances via SSM.
+
+For some time I was using [[https://github.com/xen0l/aws-gate][aws-gate]].
+
+Then we switched to SSO and it stopped working for me.
+
+Not a fan of Python I wanted just a wrapper to the plain aws utilities
+to avoid problems in the future when AWS decides to modify aws cli
+behavior.
+
+ec2-connect has some benefits:
+
+- caching e2 instance names
+- auto completion
+- type to connect to a random instance of a cluster
+
+If you use multiple accounts and ec2 instances you visit regularly you
+can configure aliases as well:
+
+create ~/.ec2connect.config with a yaml file like:
+
+#+begin_src yaml
+  hosts:
+    - alias: vertica-stage01
+      name: vertica-stage01
+      profile: prod
+      region: ap-southeast-1
+    - alias: vertica-stage02
+      name: vertica-stage02
+      profile: prod
+      region: ap-southeast-1
+    - alias: vertica-test01
+      name: vertica-test01
+      profile: test
+      region: eu-west-1
+    - alias: web
+      name: apache01
+      profile: test
+      region: us-east-2
+  defaults:
+    profile: prod
+    region: us-east-2
+    
+    
+#+end_src
+
+To make use of bash completion just add this to your bashrc:
+
+#+begin_src sh
+  source <(ec2-connect --bash_completion)
+#+end_src
+
+Suggestions are welcome!
+
+* Disclaimer
+Free to use at your own risk.
