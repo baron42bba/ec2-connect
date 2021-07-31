@@ -124,13 +124,15 @@ sub main {
 
 	}
     } elsif ( $params{type} ) {
+	my $typecount = 0;
 	for my $i ( 0 .. $#{$ec2list[0]} ) {
 	    if ( ${$ec2list[0]}[$i][2] && ${$ec2list[0]}[$i][2] eq $params{type} ) {
-		$instanceid = ${$ec2list[0]}[$i][0];
-		$launchtime = ${$ec2list[0]}[$i][3];
-		last;
+		$typecount++;
 	    }
 	}
+	my $node = int(rand($typecount+1));
+	$instanceid = ${$ec2list[0]}[$node][0];
+	$launchtime = ${$ec2list[0]}[$node][3];
     } else {
 	exit 0;
     }
@@ -190,6 +192,23 @@ __ec2connect_completions()
 
       fi
      ;;
+
+    --type|-t)
+      AWS_PROFILE=$(echo -n ${COMP_LINE} | grep --color=never -Poe \'-(-profile|p) \K[^ ]*\')
+      AWS_REGION=$(echo -n ${COMP_LINE} | grep --color=never -Poe \'-(-region|r) \K[^ ]*\')
+
+      if [ -n "${AWS_PROFILE}" ] && [ -n "${AWS_REGION}" ]; then
+        COMPREPLY=( $( compgen -W "$(command $COMP_WORDS --profile ${AWS_PROFILE} --region ${AWS_REGION} -l | awk -F\'\t\' \'{print $3}\')" -- $cur ))
+      elif [ -n "${AWS_PROFILE}" ]; then
+
+        COMPREPLY=( $( compgen -W "$(command $COMP_WORDS --profile ${AWS_PROFILE} -l | awk -F\'\t\' \'{print $3}\')" -- $cur ))
+      elif [ -n "${AWS_REGION}" ]; then
+        COMPREPLY=( $( compgen -W "$(command $COMP_WORDS --region ${AWS_REGION} -l | awk -F\'\t\' \'{print $3}\')" -- $cur ))
+      else
+        COMPREPLY=( $( compgen -W "$(command $COMP_WORDS -l | awk -F\'\t\' \'{print $3}\')" -- $cur ))
+
+      fi
+     ;;
   esac
 
   return 0
@@ -221,13 +240,14 @@ ec2-connect
 
 Options:
 
-  --help, -h for help
-  --man, -m for man page
-  --nocache ignore local cache file
+  --help, -h     for help
+  --man, -m      for man page
+  --nocache      ignore local cache file
   --profile, -p  aws profile to use
   --region, -r   aws region to use
   --list, -l     list Name tags
   --name, -n     instance name Tag to connect to.
+  --type, -t     instance type to connect to.
   --bash_completion use as source <(ec2-connect --bash_completion) in bashrc.
 
 =cut
