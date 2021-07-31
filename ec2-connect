@@ -59,11 +59,23 @@ sub main {
     }
 
     if ( ! $params{profile} ) {
+	if ( $config->{defaults}->{profile}) {
+	    $params{profile} = $config->{defaults}->{profile};
+	}
+    }
+
+    if ( ! $params{profile} ) {
 	$cachefilename = $cachefilename . "_default";
     }
     else {
 	$cachefilename = $cachefilename . "_" . $params{profile};
 	$awscommand = $awscommand . " --profile $params{profile}";
+    }
+
+    if ( ! $params{region} ) {
+	if ( $config->{defaults}->{region}) {
+	    $params{region} = $config->{defaults}->{region};
+	}
     }
 
     if ( ! $params{region} ) {
