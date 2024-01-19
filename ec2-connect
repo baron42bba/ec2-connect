@@ -26,6 +26,7 @@ sub main {
 	"profile|p=s"      => \$params{profile},
 	"region|r=s"       => \$params{region},
 	"list|l"           => \$params{list},
+	"listen|L=s"       => \$params{listen},
 	"help|h"           => \$params{help},
 	"verbose|v"        => \$params{verbose},
 	"man|m"            => \$params{man},
@@ -147,6 +148,16 @@ sub main {
 	$launchtime = ${$ec2list[0]}[$node][3];
     } else {
 	exit 0;
+      }
+
+    if ( $params{listen} && $params{listen} =~ /^(\d*):(\d*)/ ) {
+      # $1 source port
+      # $2 destination port
+      if ( $instanceid ) {
+	print STDERR ($params{profile} || "default" ) . " - " . ($params{region} || "default" ) . " - " . $instanceid . " - " . $launchtime . "\n";
+	system("$awscommand ssm start-session --target ${instanceid} --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"$2\"],\"localPortNumber\":[\"$1\"]}'");
+	exit;
+      }
     }
 
     if ( $instanceid ) {
@@ -169,8 +180,8 @@ __ec2connect_completions()
 
   case "$cur" in
     *)
-    COMPREPLY=( $( compgen -W \'-n -p -r -l -h -m \
-                               --name --profile --region --help \' -- $cur ) );;
+    COMPREPLY=( $( compgen -W \'-n -p -r -l -L -h -m \
+                               --name --profile --region --list --listen --help \' -- $cur ) );;
   esac
 
   case $prev in
@@ -258,6 +269,7 @@ Options:
   --profile, -p  aws profile to use
   --region, -r   aws region to use
   --list, -l     list Name tags
+  --listen, -L   port forwarding sourceport:destinationport
   --name, -n     instance name Tag to connect to.
   --type, -t     instance type to connect to.
   --bash_completion use as source <(ec2-connect --bash_completion) in bashrc.

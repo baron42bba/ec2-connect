@@ -14,6 +14,13 @@ ec2-connect has some benefits:
 - caching e2 instance names
 - auto completion
 - type to connect to a random instance of a cluster
+- port forwarding
+
+Install these dependencies on Debian:
+
+#+begin_src sh :eval never
+  apt-get install libjson-xs-perl libyaml-perl
+#+end_src
 
 If you use multiple accounts and ec2 instances you visit regularly you
 can configure aliases as well:
